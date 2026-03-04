@@ -1,0 +1,8 @@
+# Dépendances locales (hors Docker)
+# Airflow et Spark tournent dans Docker, ne pas les installer ici
+
+kafka-python==2.0.2
+requests==2.31.0
+python-dotenv==1.0.0
+psycopg2-binary==2.9.10
+pymongo==4.6.0

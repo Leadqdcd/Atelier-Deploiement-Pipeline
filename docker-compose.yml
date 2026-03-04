@@ -1,0 +1,197 @@
+version: '3.8'
+
+services:
+
+  ########################
+  # POSTGRES
+  ########################
+  postgres:
+    image: pgvector/pgvector:pg13
+    container_name: velib-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+
+  ########################
+  # AIRFLOW INIT
+  ########################
+  airflow-init:
+    image: apache/airflow:2.7.3
+    container_name: velib-airflow-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@velib-postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+    command: >
+      bash -c "airflow db init &&
+      airflow users create
+      --username admin
+      --password admin
+      --firstname admin
+      --lastname admin
+      --role Admin
+      --email admin@example.com"
+
+  ########################
+  # AIRFLOW WEBSERVER
+  ########################
+  airflow-webserver:
+    image: apache/airflow:2.7.3
+    container_name: velib-airflow-webserver
+    depends_on:
+      - postgres
+      - airflow-init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@velib-postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+    ports:
+      - "8080:8080"
+    command: webserver
+    restart: on-failure
+
+  ########################
+  # AIRFLOW SCHEDULER
+  ########################
+  airflow-scheduler:
+    image: apache/airflow:2.7.3
+    container_name: velib-airflow-scheduler
+    depends_on:
+      - postgres
+      - airflow-init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@velib-postgres/airflow
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./src:/opt/airflow/src
+    command: scheduler
+    restart: on-failure
+
+  ########################
+  # KAFKA (KRaft - sans Zookeeper)
+  ########################
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: velib-kafka
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_LISTENERS: "PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:9094"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://velib-kafka:9092,PLAINTEXT_HOST://localhost:9094"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@velib-kafka:9093"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+
+  ########################
+  # SPARK MASTER
+  ########################
+  spark-master:
+    image: apache/spark:3.5.1-python3
+    container_name: velib-spark-master
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.master.Master
+    ports:
+      - "7077:7077"
+      - "8081:8080"
+    volumes:
+      - ./spark_jobs:/opt/spark/jobs
+    environment:
+      SPARK_MASTER_HOST: spark-master
+
+  ########################
+  # SPARK WORKER
+  ########################
+  spark-worker:
+    image: apache/spark:3.5.1-python3
+    container_name: velib-spark-worker
+    depends_on:
+      - spark-master
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.worker.Worker
+      spark://velib-spark-master:7077
+    volumes:
+      - ./spark_jobs:/opt/spark/jobs
+    environment:
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 1g
+
+  ########################
+  # MONGODB (Data Lake)
+  ########################
+  mongodb:
+    image: mongo:6
+    container_name: velib-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: velib_lake
+
+  ########################
+  # PROMETHEUS
+  ########################
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: velib-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  ########################
+  # GRAFANA
+  ########################
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: velib-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: admin
+
+########################
+# VOLUMES
+########################
+volumes:
+  postgres_data:
+  mongodb_data:
+  grafana_data:

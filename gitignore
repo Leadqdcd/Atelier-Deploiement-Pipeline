@@ -1,0 +1,35 @@
+# Environnement virtuel
+Env/
+env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Variables d'environnement (clés secrètes)
+.env
+
+# Logs
+*.log
+logs/
+
+# Checkpoints Spark
+/tmp/
+
+# Données locales
+data/
+*.csv
+*.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Docker
+.docker/
+
+# OS
+.DS_Store
+Thumbs.db
