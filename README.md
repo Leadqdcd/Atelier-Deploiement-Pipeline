@@ -219,4 +219,4 @@ ORDER BY heure DESC;
 
 ## Auteur
 
-Projet réalisé dans le cadre d'un atelier Big Data — Master Data Engineering.
+Atelier Déploiement Pipeline — Léa
