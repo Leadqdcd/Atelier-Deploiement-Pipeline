@@ -359,4 +359,4 @@ obtenus.
 
 ## Auteur
 
-Atelier Déploiement Pipeline — Léa
+Atelier Déploiement Pipeline — Léa, Ndeye, Nila
