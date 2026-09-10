@@ -81,14 +81,3 @@ dans ce projet, cette capture documente donc l'état de la stack de
 supervision telle que livrée.
 
 ![Monitoring](images/07-monitoring.png)
-
----
-
-## 8. Déploiement VPS (bonus)
-
-_Capture attendue : `docs/images/08-vps-deploiement.png`_
-`docker compose ps` sur le serveur distant (81.17.98.238) montrant les
-conteneurs `velib-*` en cours d'exécution aux côtés des autres projets
-hébergés sur ce VPS mutualisé.
-
-![Déploiement VPS](images/08-vps-deploiement.png)

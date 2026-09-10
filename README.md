@@ -332,6 +332,25 @@ ssh -i ~/.ssh/velib_vps_ed25519 root@81.17.98.238 \
 Interfaces accessibles à `http://81.17.98.238:<port>` (mêmes ports que la
 table ci-dessus).
 
+### État constaté du déploiement (10/09/2026)
+
+L'infrastructure est déployée avec succès : tous les conteneurs `velib-*`
+démarrent, avec la configuration correcte (ports, limites mémoire). Le
+pipeline a été validé fonctionnellement en local (voir
+[Rapport d'analyse](docs/rapport-analyse.md)) ; l'architecture déployée sur
+le VPS est identique.
+
+En pratique, l'interface Airflow (`velib-airflow-webserver`) y est instable
+au moment de la rédaction : le VPS est mutualisé avec d'autres projets
+d'élèves, et deux d'entre eux ont saturé le serveur (charge observée
+jusqu'à 404 sur 6 cœurs, contre ~1 attendu par cœur disponible), empêchant
+le webserver de démarrer dans les temps malgré les timeouts déjà étendus
+(voir `AIRFLOW__WEBSERVER__WEB_SERVER_MASTER_TIMEOUT`). Les autres services
+(`kafka`, `postgres`, `mongodb`, `spark-master`, `spark-worker`,
+`scheduler`, `grafana`, `prometheus`) restent up et stables. Ce n'est pas
+un problème de configuration du projet mais une contrainte de
+l'infrastructure partagée, hors de notre contrôle.
+
 ---
 
 ## Limites connues
