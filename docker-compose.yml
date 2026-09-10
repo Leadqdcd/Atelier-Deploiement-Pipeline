@@ -140,7 +140,13 @@ services:
       - ./spark_jobs:/opt/spark/jobs
     environment:
       SPARK_MASTER_HOST: spark-master
-      SPARK_LOCAL_IP: 0.0.0.0
+      # NB : SPARK_LOCAL_IP=0.0.0.0 (essayé initialement pour contourner
+      # l'UnknownHostException du hostname auto-généré du conteneur) casse
+      # la RPC retour driver<->executor : 0.0.0.0 est une adresse joker,
+      # injoignable en tant que destination. SPARK_LOCAL_HOSTNAME avec le
+      # nom réseau du service (résolu par le DNS Docker) fixe les deux
+      # problèmes : résolution du hostname ET adresse réellement routable.
+      SPARK_LOCAL_HOSTNAME: spark-master
     mem_limit: 384m
 
   ########################
@@ -159,8 +165,8 @@ services:
       - ./spark_jobs:/opt/spark/jobs
     environment:
       SPARK_WORKER_CORES: 2
-      SPARK_WORKER_MEMORY: 512m
-      SPARK_LOCAL_IP: 0.0.0.0
+      SPARK_WORKER_MEMORY: 640m
+      SPARK_LOCAL_HOSTNAME: spark-worker
     mem_limit: 768m
 
   ########################

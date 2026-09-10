@@ -303,6 +303,8 @@ d'autres ateliers Docker/Hadoop).
   ssh -i ~/.ssh/velib_vps_ed25519 root@81.17.98.238
   docker exec -d velib-spark-master /opt/spark/bin/spark-submit \
     --master spark://spark-master:7077 \
+    --conf spark.jars.ivy=/tmp/.ivy2 \
+    --executor-memory 512m --executor-cores 1 \
     --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.postgresql:postgresql:42.6.0,org.mongodb.spark:mongo-spark-connector_2.12:10.3.0 \
     /opt/spark/jobs/spark_velib_job.py
   ```

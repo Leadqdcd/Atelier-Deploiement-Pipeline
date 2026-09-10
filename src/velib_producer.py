@@ -15,6 +15,7 @@ import logging
 import requests
 
 from datetime import datetime
+from typing import List
 from kafka import KafkaProducer
 from dotenv import load_dotenv
 
@@ -58,7 +59,7 @@ def create_producer() -> KafkaProducer:
 # ------------------------------------------------------------------
 # Collecte depuis l'API Vélib
 # ------------------------------------------------------------------
-def fetch_velib_data() -> list[dict]:
+def fetch_velib_data() -> List[dict]:
     """
     Appelle l'API Open Data Paris et retourne la liste des stations.
     Retourne une liste vide en cas d'erreur.
@@ -111,7 +112,7 @@ def transform_record(record: dict) -> dict:
 # ------------------------------------------------------------------
 # Publication dans Kafka
 # ------------------------------------------------------------------
-def publish_to_kafka(producer: KafkaProducer, records: list[dict]) -> int:
+def publish_to_kafka(producer: KafkaProducer, records: List[dict]) -> int:
     """
     Envoie chaque station comme message indépendant dans le topic Kafka.
     Retourne le nombre de messages envoyés avec succès.

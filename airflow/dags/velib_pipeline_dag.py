@@ -86,6 +86,10 @@ def run_spark_job(**context):
             # n'est pas inscriptible : Ivy ne peut pas y créer son cache par
             # défaut. On le redirige vers /tmp, inscriptible par tous.
             "--conf", "spark.jars.ivy=/tmp/.ivy2",
+            # Le worker n'a que 512m de mémoire déclarée (SPARK_WORKER_MEMORY) :
+            # l'exécuteur par défaut (1g) ne peut jamais être planifié sinon.
+            "--executor-memory", "512m",
+            "--executor-cores", "1",
             "--packages",
             "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,"
             "org.postgresql:postgresql:42.6.0,"
@@ -173,7 +177,8 @@ with DAG(
         bash_command="""
             cd /opt/airflow/src && \
             pip install kafka-python requests python-dotenv --quiet && \
-            timeout 60 python velib_producer.py || true
+            timeout 60 python velib_producer.py; code=$?; \
+            if [ $code -ne 0 ] && [ $code -ne 124 ]; then exit $code; fi
         """,
         env={
             "API_URL":       "https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/velib-disponibilite-en-temps-reel/records?limit=100",
@@ -181,6 +186,10 @@ with DAG(
             "KAFKA_TOPIC":   "velib-stations",
             "VELIB_INTERVAL": "30",
         },
+        # Sans append_env=True, `env=` REMPLACE tout l'environnement du
+        # sous-processus (PATH compris) au lieu de le compléter : "python"
+        # devient introuvable. Piège classique de BashOperator.
+        append_env=True,
     )
 
     # Tâche 3 : Soumission du job Spark (démarrage du stream, idempotent)
