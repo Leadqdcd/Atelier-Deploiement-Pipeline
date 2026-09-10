@@ -1,0 +1,14 @@
+# Surcharge appliquée automatiquement par `docker compose` en local uniquement.
+# Donne au scheduler Airflow (LocalExecutor : les tâches s'exécutent dans ce
+# conteneur) l'accès au socket Docker de la machine hôte, nécessaire pour
+# déclencher spark-submit dans le conteneur velib-spark-master.
+#
+# ATTENTION SÉCURITÉ : ce montage donne un accès équivalent root au moteur
+# Docker de l'hôte. Ne JAMAIS répliquer ce fichier sur le VPS partagé
+# (81.17.98.238) : sur une machine mutualisée avec d'autres projets, cela
+# reviendrait à donner à Airflow le contrôle total de Docker pour tout le
+# monde. Ce fichier reste local (non copié lors du déploiement VPS).
+services:
+  airflow-scheduler:
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

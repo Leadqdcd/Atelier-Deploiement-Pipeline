@@ -59,6 +59,45 @@ def check_api_availability(**context):
     return total
 
 
+def run_spark_job(**context):
+    """
+    Démarre le job Spark Structured Streaming dans le conteneur
+    velib-spark-master (spark-submit), via le socket Docker de l'hôte.
+
+    Le job est un stream continu (awaitAnyTermination) : on le lance en
+    tâche de fond et on ne le redémarre pas s'il tourne déjà, pour éviter
+    d'empiler plusieurs consommateurs Kafka concurrents à chaque run du DAG.
+    """
+    import docker
+
+    client = docker.from_env()
+    container = client.containers.get("velib-spark-master")
+
+    already_running = container.exec_run("pgrep -f spark_velib_job.py").exit_code == 0
+    if already_running:
+        logger.info("Job Spark déjà en cours d'exécution, rien à faire.")
+        return "already_running"
+
+    container.exec_run(
+        cmd=[
+            "/opt/spark/bin/spark-submit",
+            "--master", "spark://spark-master:7077",
+            # Le HOME du user "spark" de l'image (/home/spark) n'existe pas et
+            # n'est pas inscriptible : Ivy ne peut pas y créer son cache par
+            # défaut. On le redirige vers /tmp, inscriptible par tous.
+            "--conf", "spark.jars.ivy=/tmp/.ivy2",
+            "--packages",
+            "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,"
+            "org.postgresql:postgresql:42.6.0,"
+            "org.mongodb.spark:mongo-spark-connector_2.12:10.3.0",
+            "/opt/spark/jobs/spark_velib_job.py",
+        ],
+        detach=True,
+    )
+    logger.info("Job Spark Structured Streaming démarré en arrière-plan.")
+    return "started"
+
+
 def validate_postgres_data(**context):
     """
     Vérifie que des données ont bien été insérées dans PostgreSQL
@@ -144,16 +183,10 @@ with DAG(
         },
     )
 
-    # Tâche 3 : Soumission du job Spark
-    run_spark = BashOperator(
+    # Tâche 3 : Soumission du job Spark (démarrage du stream, idempotent)
+    run_spark = PythonOperator(
         task_id="run_spark_job",
-        bash_command="""
-            docker exec spark-master \
-            /opt/spark/bin/spark-submit \
-            --master spark://spark-master:7077 \
-            --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1,org.postgresql:postgresql:42.6.0 \
-            /opt/spark/jobs/spark_velib_job.py || echo "Spark job terminé"
-        """,
+        python_callable=run_spark_job,
     )
 
     # Tâche 4 : Validation des données dans PostgreSQL
